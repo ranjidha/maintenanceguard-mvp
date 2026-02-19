@@ -1,334 +1,173 @@
-# MaintenanceGuard MVP
+# 🚗 MaintenanceGuard MVP
 
-A proof-of-concept vehicle maintenance tracking and upsell detection system.
+An AI-powered vehicle maintenance tracker that helps you build a confirmed service history, get evidence-based maintenance recommendations, and detect unnecessary upsells from service providers.
 
-## Features
+## ✨ Features
 
-- 🚗 Vehicle profile management (Year/Make/Model)
-- 📄 Invoice upload with OCR extraction
-- 🤖 AI-powered invoice parsing using Claude
-- 📊 Maintenance timeline and history
-- 💡 Evidence-based recommendations with OEM schedule grounding
-- 🚨 Upsell detection and flagging
+- **Vehicle Management** — Add and manage multiple vehicles by Year/Make/Model
+- **Invoice Upload & OCR** — Upload service invoices (PDF/JPG/PNG) and auto-extract data using AI
+- **Maintenance Timeline** — Visual history of all services performed
+- **AI Recommendations** — Evidence-based recommendations grounded in OEM schedules:
+  - ✅ Recommended Now
+  - ⏰ Due Soon
+  - 💡 Optional Enhancement
+  - ⚠️ Not Typically Required (potential upsell)
+- **Add to Service History** — Select completed services from recommendations and save them
+- **Upsell Detection** — Flags services recommended earlier than OEM guidelines suggest
 
-## Tech Stack
+## 🛠 Tech Stack
 
-- **Backend**: Python 3.11, FastAPI
-- **Frontend**: React 18, Tailwind CSS, Vite
-- **Database**: PostgreSQL 15 with pgvector
-- **LLM**: Anthropic Claude API
-- **OCR**: Tesseract OCR
-- **Container**: Docker & Docker Compose
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18, Tailwind CSS, Vite |
+| Backend | Python 3.11, FastAPI |
+| Database | PostgreSQL 15 with pgvector |
+| AI / LLM | Anthropic Claude API |
+| OCR | Tesseract OCR |
+| Infrastructure | Docker & Docker Compose |
 
-## Prerequisites
+---
 
-- Docker Desktop installed ([Download](https://www.docker.com/products/docker-desktop))
-- Anthropic API Key ([Get one](https://console.anthropic.com/))
-- Git
+## 🚀 Quick Start (For Developers)
 
-## Quick Start
+### Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop) installed and running
+- [Git](https://git-scm.com/downloads) installed
+- An Anthropic API key → get one at [console.anthropic.com](https://console.anthropic.com/)
 
-### 1. Clone the Repository
-
+### 1. Clone the repository
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/YOUR_USERNAME/maintenanceguard-mvp.git
 cd maintenanceguard-mvp
 ```
 
-### 2. Set Up Environment Variables
-
+### 2. Create your environment file
 ```bash
-# Copy example env file
 cp .env.example .env
-
-# Edit .env and add your Anthropic API key
-nano .env
+```
+Open `.env` and replace `your_anthropic_api_key_here` with your actual API key:
+```
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxx
 ```
 
-Required environment variables:
-```
-ANTHROPIC_API_KEY=your_api_key_here
-DATABASE_URL=postgresql://postgres:postgres@db:5432/maintenanceguard
-```
-
-### 3. Start the Application
-
+### 3. Start the application
 ```bash
-# Build and start all services
-docker compose up --build
-
-# Or run in detached mode
-docker compose up -d
+docker compose up --build -d
 ```
+First build takes 3–5 minutes. After that:
 
-The application will be available at:
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
+| Service | URL |
+|---------|-----|
+| App (Frontend) | http://localhost:3000 |
+| API | http://localhost:8000 |
+| API Docs | http://localhost:8000/docs |
 
-### 4. Initialize the Database
-
+### 4. Load OEM schedule data (first time only)
 ```bash
-# Run migrations (first time only)
-docker compose exec backend python -m app.utils.init_db
+docker exec -i maintenanceguard-db psql -U postgres -d maintenanceguard < toyota_oem_data.sql
 ```
 
-## Development
-
-### Backend Development
-
+### 5. Stop the application
 ```bash
-# View backend logs
-docker compose logs -f backend
-
-# Run tests
-docker compose exec backend pytest
-
-# Access backend shell
-docker compose exec backend bash
+docker compose down
 ```
 
-### Frontend Development
+---
 
-```bash
-# View frontend logs
-docker compose logs -f frontend
-
-# Access frontend shell
-docker compose exec frontend sh
-
-# Install new npm packages
-docker compose exec frontend npm install <package-name>
-```
-
-### Database Access
-
-```bash
-# Access PostgreSQL CLI
-docker compose exec db psql -U postgres -d maintenanceguard
-
-# Run SQL file
-docker compose exec db psql -U postgres -d maintenanceguard -f /path/to/file.sql
-```
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 maintenanceguard-mvp/
 ├── backend/
 │   ├── app/
-│   │   ├── api/          # API routes
-│   │   ├── models/       # SQLAlchemy models
-│   │   ├── services/     # Business logic
-│   │   └── utils/        # Utilities
-│   ├── tests/
+│   │   ├── api/          # Route handlers
+│   │   ├── models/       # Database models & schemas
+│   │   ├── services/     # LLM & OCR services
+│   │   └── utils/        # Database utilities
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── components/   # React components
-│   │   ├── pages/        # Page components
-│   │   ├── services/     # API clients
-│   │   └── utils/        # Utilities
+│   │   ├── pages/        # React pages
+│   │   └── services/     # API client
 │   ├── package.json
 │   └── Dockerfile
-├── database/
-│   ├── migrations/       # SQL migrations
-│   └── seeds/           # Sample data
 ├── docker-compose.yml
+├── .env.example          # Copy to .env and add your API key
+├── toyota_oem_data.sql   # OEM schedule seed data
 └── README.md
 ```
 
-## API Documentation
+---
 
-Once running, visit http://localhost:8000/docs for interactive API documentation.
+## 🔑 Key API Endpoints
 
-### Key Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/vehicles` | Create a vehicle |
+| GET | `/api/vehicles` | List all vehicles |
+| POST | `/api/invoices/upload` | Upload & parse an invoice |
+| POST | `/api/invoices/{id}/confirm` | Confirm invoice data |
+| POST | `/api/recommendations` | Generate AI recommendations |
+| POST | `/api/recommendations/add-to-history` | Save selected recommendations |
+| GET | `/api/timeline/{vehicle_id}` | Get maintenance timeline |
 
-- `POST /api/vehicles` - Create vehicle profile
-- `GET /api/vehicles/{id}` - Get vehicle details
-- `POST /api/invoices/upload` - Upload invoice
-- `GET /api/invoices/{id}` - Get invoice details
-- `POST /api/recommendations` - Get maintenance recommendations
-- `GET /api/timeline/{vehicle_id}` - Get maintenance timeline
+Full interactive docs at **http://localhost:8000/docs**
 
-## Usage Guide
+---
 
-### 1. Create a Vehicle Profile
-
-1. Navigate to the dashboard
-2. Click "Add Vehicle"
-3. Enter Year, Make, Model (e.g., 2020, Toyota, Camry)
-4. Click "Save"
-
-### 2. Upload Invoice
-
-1. Select your vehicle
-2. Click "Upload Invoice"
-3. Choose PDF/JPG file
-4. Wait for OCR processing
-5. Review extracted data
-6. Confirm and save
-
-### 3. View Recommendations
-
-1. Click "Get Recommendations" on vehicle card
-2. Review categorized recommendations:
-   - ✅ Recommended Now
-   - ⏰ Due Soon
-   - 💎 Optional Enhancement
-   - ⚠️ Not Typically Required (potential upsell)
-
-## Configuration
-
-### OEM Schedule Data
-
-Sample OEM schedules are included for:
-- Toyota Camry 2018-2023
-- Honda Accord 2018-2023
-- Ford F-150 2018-2023
-
-To add more vehicles, add JSON files to `database/seeds/oem_schedules/`.
-
-### LLM Configuration
-
-Edit `backend/app/services/llm_service.py` to adjust:
-- Model selection (claude-3-5-sonnet-20241022)
-- Temperature
-- Max tokens
-- System prompts
-
-## Troubleshooting
-
-### "Connection refused" errors
+## 🔧 Useful Commands
 
 ```bash
-# Restart services
-docker compose restart
+# View live logs
+docker compose logs -f backend
+docker compose logs -f frontend
 
-# Check service status
-docker compose ps
-```
+# Restart a service after code change
+docker compose restart backend
 
-### OCR not working
+# Full rebuild (after requirements.txt or Dockerfile changes)
+docker compose up --build -d
 
-```bash
-# Rebuild backend with Tesseract
-docker compose build backend
-docker compose up -d
-```
+# Access the database
+docker exec -it maintenanceguard-db psql -U postgres -d maintenanceguard
 
-### Database connection errors
-
-```bash
-# Reset database
+# Reset everything (WARNING: deletes all data)
 docker compose down -v
-docker compose up -d db
-# Wait 10 seconds for DB to initialize
-docker compose up -d
+docker compose up --build -d
 ```
 
-### Clear all data and restart
+---
 
-```bash
-docker compose down -v
-docker compose up --build
-```
+## 🐛 Troubleshooting
 
-## Using with Claude Code
+| Problem | Fix |
+|---------|-----|
+| Site not loading at localhost:3000 | Run `docker compose ps` — check all 3 containers are "Up" |
+| "ANTHROPIC_API_KEY not set" | Make sure `.env` exists with your key, then `docker compose restart backend` |
+| Vehicles not showing | Open http://localhost:8000/api/vehicles to test backend directly |
+| Port already in use | Windows: `netstat -ano \| findstr :3000` to find PID, then `taskkill /PID <PID> /F` |
+| Database errors | Run `docker compose down -v` then `docker compose up --build -d` |
 
-If you want to use Claude Code (Anthropic's CLI agent) for development:
+---
 
-```bash
-# Install Claude Code (if not already installed)
-npm install -g @anthropic-ai/claude-code
+## 📋 For Non-Technical Users
 
-# Run Claude Code in project directory
-claude-code
+See **[SETUP_GUIDE.md](SETUP_GUIDE.md)** for a plain-English step-by-step setup guide.
 
-# Example: Ask Claude Code to add a feature
-> "Add email notification when invoice processing completes"
-```
+---
 
-## Testing
+## 🗺 Roadmap
 
-### Run All Tests
-
-```bash
-docker compose exec backend pytest
-```
-
-### Run Specific Test File
-
-```bash
-docker compose exec backend pytest tests/test_invoice_service.py -v
-```
-
-### Test Coverage
-
-```bash
-docker compose exec backend pytest --cov=app tests/
-```
-
-## Deployment
-
-### Production Checklist
-
-- [ ] Set strong database password
-- [ ] Enable HTTPS
-- [ ] Set up proper authentication
-- [ ] Configure CORS properly
-- [ ] Set up monitoring (logs, metrics)
-- [ ] Configure backups
-- [ ] Set rate limiting
-- [ ] Review security headers
-
-### Deploy to Cloud
-
-See `docs/DEPLOYMENT.md` for deployment guides for:
-- AWS ECS/Fargate
-- Google Cloud Run
-- Railway
-- DigitalOcean
-
-## Contributing
-
-This is a proof-of-concept project. For improvements:
-
-1. Fork the repository
-2. Create feature branch
-3. Make changes
-4. Submit pull request
-
-## License
-
-MIT License - See LICENSE file
-
-## Support
-
-For issues, please create a GitHub issue with:
-- Error message
-- Steps to reproduce
-- Docker logs (`docker compose logs`)
-
-## Roadmap
-
-- [ ] Add user authentication
-- [ ] Multi-vehicle support per user
-- [ ] Email/SMS reminders
-- [ ] Mobile app (React Native)
+- [ ] User authentication & login
+- [ ] More OEM vehicle coverage
+- [ ] Email/SMS maintenance reminders
 - [ ] VIN decoder integration
-- [ ] More OEM schedule coverage
-- [ ] Cost estimation for services
-- [ ] Service provider directory
+- [ ] Cost estimation per service
+- [ ] Mobile invoice camera capture
 
-## Notes
+---
 
-This is an MVP/PoC focusing on core functionality. Production deployment requires:
-- Proper authentication/authorization
-- Rate limiting
-- Input validation
-- Security hardening
-- Error handling
-- Monitoring
-- Backups
+## 📄 License
+
+MIT License

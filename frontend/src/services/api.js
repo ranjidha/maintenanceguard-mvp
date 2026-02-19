@@ -35,6 +35,7 @@ export const deleteInvoice = (id) => api.delete(`/api/invoices/${id}`);
 
 // Recommendations
 export const getRecommendations = (data) => api.post('/api/recommendations', data);
+export const addRecommendationsToHistory = (data) => api.post('/api/recommendations/add-to-history', data);
 
 // Timeline
 export const getTimeline = (vehicleId) => api.get(`/api/timeline/${vehicleId}`);

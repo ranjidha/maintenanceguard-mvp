@@ -1,6 +1,5 @@
 import os
 import json
-import re
 from anthropic import Anthropic
 from typing import Dict, Any, Optional
 
@@ -13,36 +12,10 @@ class LLMService:
         self.client = Anthropic(api_key=api_key)
         self.model = "claude-3-haiku-20240307"
     
-    def _extract_json(self, text: str):
-        """Robustly extract JSON from LLM response text."""
-        if not text or not text.strip():
-            raise ValueError("Empty response from LLM")
-        
-        # Strip markdown code fences
-        if "```json" in text:
-            text = text.split("```json")[1].split("```")[0].strip()
-        elif "```" in text:
-            text = text.split("```")[1].split("```")[0].strip()
-        
-        # Try direct parse first
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            pass
-        
-        # Try to find JSON array [...] or object {...} in the text
-        for pattern in [r'\[.*\]', r'\{.*\}']:
-            match = re.search(pattern, text, re.DOTALL)
-            if match:
-                try:
-                    return json.loads(match.group())
-                except json.JSONDecodeError:
-                    pass
-        
-        raise ValueError(f"Could not extract valid JSON from response: {text[:200]}")
-
     async def extract_invoice_data(self, ocr_text: str) -> Dict[str, Any]:
-        """Extract structured data from invoice OCR text using Claude"""
+        """
+        Extract structured data from invoice OCR text using Claude
+        """
         
         system_prompt = """You are an expert at extracting structured data from vehicle maintenance invoices.
         
@@ -82,11 +55,19 @@ Return only JSON with the structure specified."""
                 max_tokens=2000,
                 temperature=0,
                 system=system_prompt,
-                messages=[{"role": "user", "content": user_message}]
+                messages=[
+                    {
+                        "role": "user",
+                        "content": user_message
+                    }
+                ]
             )
             
+            # Extract text from response
             response_text = message.content[0].text
-            extracted_data = self._extract_json(response_text)
+            
+            # Parse JSON
+            extracted_data = json.loads(response_text)
             
             return {
                 "success": True,
@@ -94,11 +75,16 @@ Return only JSON with the structure specified."""
                 "raw_response": response_text
             }
             
+        except json.JSONDecodeError as e:
+            return {
+                "success": False,
+                "error": f"Failed to parse JSON: {str(e)}",
+                "raw_response": response_text if 'response_text' in locals() else None
+            }
         except Exception as e:
             return {
                 "success": False,
-                "error": str(e),
-                "raw_response": locals().get("response_text")
+                "error": str(e)
             }
     
     async def generate_recommendations(
@@ -109,7 +95,9 @@ Return only JSON with the structure specified."""
         oem_schedules: list,
         driving_condition: str = "normal"
     ) -> Dict[str, Any]:
-        """Generate maintenance recommendations based on vehicle info, history, and OEM schedules"""
+        """
+        Generate maintenance recommendations based on vehicle info, history, and OEM schedules
+        """
         
         system_prompt = """You are a vehicle maintenance expert advisor. Your role is to provide evidence-based maintenance recommendations.
 
@@ -120,42 +108,35 @@ Analyze the provided information and generate recommendations in these categorie
 4. "not_needed" - Services that are NOT due based on OEM schedule (potential upsells)
 
 For each recommendation, provide:
-- service_type: Name of the service (string)
-- category: One of the four categories above (string)
-- reason: Clear explanation of why this service is recommended or not needed (string)
-- interval_miles: Recommended mileage interval from OEM schedule (integer or null)
-- interval_months: Recommended time interval from OEM schedule (integer or null)
-- last_performed_date: When this service was last performed if in history (string or null)
-- last_performed_mileage: Mileage when last performed if in history (integer or null)
-- citation: Reference to OEM schedule e.g. "2020 Toyota Camry Owner's Manual" (string or null)
-- confidence: "high", "medium", or "low" (string)
-- is_upsell_flag: true if this appears to be unnecessary upsell (boolean)
-- upsell_reason: Explanation if flagged as upsell (string or null)
+- service_type: Name of the service
+- category: One of the four categories above
+- reason: Clear explanation of why this service is recommended or not needed
+- interval_miles: Recommended mileage interval from OEM schedule
+- interval_months: Recommended time interval from OEM schedule
+- last_performed_date: When this service was last performed (if in history)
+- last_performed_mileage: Mileage when last performed (if in history)
+- citation: Reference to OEM schedule (e.g., "2020 Toyota Camry Owner's Manual")
+- confidence: "high", "medium", or "low"
+- is_upsell_flag: true if this appears to be unnecessary upsell
+- upsell_reason: Explanation if flagged as upsell
 
 CRITICAL RULES:
 - NEVER recommend a service without OEM schedule support
 - Always cite the OEM manual
 - Flag services performed too early as potential upsells
 - If uncertain, state assumptions clearly
-- You MUST respond with ONLY a valid JSON array, no other text
 
-Example response format:
-[
-  {
-    "service_type": "Oil Change",
-    "category": "recommended_now",
-    "reason": "Due based on mileage interval",
-    "interval_miles": 5000,
-    "interval_months": 6,
-    "last_performed_date": null,
-    "last_performed_mileage": null,
-    "citation": "2020 Toyota Camry Owner's Manual",
-    "confidence": "high",
-    "is_upsell_flag": false,
-    "upsell_reason": null
-  }
-]"""
+Return only valid JSON array of recommendations."""
 
+        # Prepare context
+        context = {
+            "vehicle": vehicle_info,
+            "current_mileage": current_mileage,
+            "driving_condition": driving_condition,
+            "service_history": service_history,
+            "oem_schedules": oem_schedules
+        }
+        
         user_message = f"""Generate maintenance recommendations for this vehicle:
 
 Vehicle: {vehicle_info['year']} {vehicle_info['make']} {vehicle_info['model']}
@@ -168,23 +149,31 @@ Service History:
 OEM Maintenance Schedule:
 {json.dumps(oem_schedules, indent=2)}
 
-Respond with ONLY a JSON array of recommendation objects. No markdown, no explanation, just the JSON array."""
+Provide recommendations in JSON format."""
 
         try:
             message = self.client.messages.create(
                 model=self.model,
-                max_tokens=4000,
+                max_tokens=3000,
                 temperature=0,
                 system=system_prompt,
-                messages=[{"role": "user", "content": user_message}]
+                messages=[
+                    {
+                        "role": "user",
+                        "content": user_message
+                    }
+                ]
             )
             
             response_text = message.content[0].text
-            recommendations = self._extract_json(response_text)
             
-            # Ensure it's a list
-            if isinstance(recommendations, dict):
-                recommendations = [recommendations]
+            # Try to parse JSON (might be wrapped in markdown code blocks)
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].split("```")[0].strip()
+            
+            recommendations = json.loads(response_text)
             
             return {
                 "success": True,
@@ -195,7 +184,7 @@ Respond with ONLY a JSON array of recommendation objects. No markdown, no explan
             return {
                 "success": False,
                 "error": str(e),
-                "raw_response": locals().get("response_text")
+                "raw_response": response_text if 'response_text' in locals() else None
             }
 
 # Singleton instance
