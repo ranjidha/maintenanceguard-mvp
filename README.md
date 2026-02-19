@@ -58,7 +58,7 @@ First build takes 3–5 minutes. After that:
 
 | Service | URL |
 |---------|-----|
-| App (Frontend) | http://localhost:3000 |
+| App (Frontend) | http://localhost:5173 or 3000 |
 | API | http://localhost:8000 |
 | API Docs | http://localhost:8000/docs |
 
